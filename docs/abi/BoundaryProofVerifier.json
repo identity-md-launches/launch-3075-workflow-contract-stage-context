@@ -1,0 +1,217 @@
+[
+  {
+    "type": "function",
+    "name": "HISTORY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "header",
+    "inputs": [
+      {
+        "name": "raw",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "h",
+        "type": "tuple",
+        "internalType": "struct BoundaryProofVerifier.Header",
+        "components": [
+          {
+            "name": "parent",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "stateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "number",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "verify",
+    "inputs": [
+      {
+        "name": "boundary",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "asset",
+        "type": "tuple",
+        "internalType": "struct MarketTypes.Asset",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "unitsPerShare",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxOpenPairs",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "hops",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "path",
+            "type": "tuple[3]",
+            "internalType": "struct MarketTypes.PoolKey[3]",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hooks",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "proofs",
+        "type": "tuple[3]",
+        "internalType": "struct BoundaryProofVerifier.BlockProof[3]",
+        "components": [
+          {
+            "name": "header",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "accountProof",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "storageProofs",
+            "type": "bytes[][]",
+            "internalType": "bytes[][]"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifyHeaders",
+    "inputs": [
+      {
+        "name": "boundary",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "raw",
+        "type": "bytes[3]",
+        "internalType": "bytes[3]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "h",
+        "type": "tuple[3]",
+        "internalType": "struct BoundaryProofVerifier.Header[3]",
+        "components": [
+          {
+            "name": "parent",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "stateRoot",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "number",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidHeaders",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidProof",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRLP",
+    "inputs": []
+  }
+]

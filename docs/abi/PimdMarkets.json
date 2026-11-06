@@ -1,0 +1,1470 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "owner_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "registry_",
+        "type": "address",
+        "internalType": "contract PimdRegistry"
+      },
+      {
+        "name": "oracle_",
+        "type": "address",
+        "internalType": "contract BoundaryOracle"
+      },
+      {
+        "name": "swapper_",
+        "type": "address",
+        "internalType": "contract PimdSwap"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "balance",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bestAsk",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bestBid",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cancel",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "up",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "down",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimAll",
+    "inputs": [
+      {
+        "name": "ids",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimWithProofs",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "up",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "down",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "proofs",
+        "type": "tuple[]",
+        "internalType": "struct PimdMarkets.ProofSubmission[]",
+        "components": [
+          {
+            "name": "version",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "boundary",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "proofs",
+            "type": "tuple[3]",
+            "internalType": "struct BoundaryProofVerifier.BlockProof[3]",
+            "components": [
+              {
+                "name": "header",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "accountProof",
+                "type": "bytes[]",
+                "internalType": "bytes[]"
+              },
+              {
+                "name": "storageProofs",
+                "type": "bytes[][]",
+                "internalType": "bytes[][]"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "expire",
+    "inputs": [
+      {
+        "name": "ids",
+        "type": "uint64[]",
+        "internalType": "uint64[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "feeQuote",
+    "inputs": [
+      {
+        "name": "mid",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "price_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "taker",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "down",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "market",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.Market",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "version",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "start",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "end",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "factor",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "maxPairs",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "ladderStrike",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "strike",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "close",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "pairs",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "reserveUSDC",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "reserveAsset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "outcome",
+            "type": "uint8",
+            "internalType": "enum PimdMarkets.Outcome"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketId",
+    "inputs": [
+      {
+        "name": "spec",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.MarketSpec",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "period",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "start",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "strike",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "marketIds",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "matchMarket",
+    "inputs": [
+      {
+        "name": "mid",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "maxSteps",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "fills",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "merge",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "quantity",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "nextOrderId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "oracle",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract BoundaryOracle"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "order",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.Order",
+        "components": [
+          {
+            "name": "market",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "trader",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "action",
+            "type": "uint8",
+            "internalType": "enum PimdMarkets.Action"
+          },
+          {
+            "name": "assetOnly",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "expiry",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "previous",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "next",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "remaining",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "limitPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "cash",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "asset",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "fee",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "swapBudget",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "resting",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "fills",
+            "type": "uint16",
+            "internalType": "uint16"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "place",
+    "inputs": [
+      {
+        "name": "spec",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.MarketSpec",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "period",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "start",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "strike",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.OrderInput",
+        "components": [
+          {
+            "name": "action",
+            "type": "uint8",
+            "internalType": "enum PimdMarkets.Action"
+          },
+          {
+            "name": "quantity",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "limitPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "expiry",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "immediateOrCancel",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "assetOnly",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxSwapInput",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "feeBudget",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "insertionHint",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "maxSteps",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "placeWithProofs",
+    "inputs": [
+      {
+        "name": "spec",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.MarketSpec",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "period",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "start",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "strike",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.OrderInput",
+        "components": [
+          {
+            "name": "action",
+            "type": "uint8",
+            "internalType": "enum PimdMarkets.Action"
+          },
+          {
+            "name": "quantity",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "limitPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "expiry",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "immediateOrCancel",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "assetOnly",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "maxSwapInput",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "feeBudget",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "insertionHint",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "maxSteps",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "proofs",
+        "type": "tuple[]",
+        "internalType": "struct PimdMarkets.ProofSubmission[]",
+        "components": [
+          {
+            "name": "version",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "boundary",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "proofs",
+            "type": "tuple[3]",
+            "internalType": "struct BoundaryProofVerifier.BlockProof[3]",
+            "components": [
+              {
+                "name": "header",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "accountProof",
+                "type": "bytes[]",
+                "internalType": "bytes[]"
+              },
+              {
+                "name": "storageProofs",
+                "type": "bytes[][]",
+                "internalType": "bytes[][]"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "positions",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "up",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "down",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract PimdRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "settle",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "split",
+    "inputs": [
+      {
+        "name": "spec",
+        "type": "tuple",
+        "internalType": "struct PimdMarkets.MarketSpec",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "period",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "start",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "strike",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "quantity",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "swapper",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract PimdSwap"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "Claimed",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "up",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "down",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "usdc",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "asset",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Deposited",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeePaid",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "coin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "makerRebate",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MarketCreated",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "period",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "start",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "end",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "ladderStrike",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "version",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Merged",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrderClosed",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "unfilled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "reason",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "cashRefund",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "assetRefund",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrderEscrowed",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "cash",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "asset",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "swapBudget",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "assetOnly",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrderPlaced",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "trader",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "action",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum PimdMarkets.Action"
+      },
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "expiry",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Settled",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "outcome",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum PimdMarkets.Outcome"
+      },
+      {
+        "name": "strike",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "close",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ShortFunded",
+    "inputs": [
+      {
+        "name": "order",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "assetSpent",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "usdcOutput",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Split",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Trade",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "maker",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "taker",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "quantity",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Withdrawn",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InsertionHintRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBalance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMarket",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidOrder",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidTransfer",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MissingPrice",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
+    "inputs": []
+  }
+]
