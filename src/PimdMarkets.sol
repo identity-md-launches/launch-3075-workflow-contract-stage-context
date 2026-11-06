@@ -230,10 +230,18 @@ contract PimdMarkets is ReentrancyGuard {
         return k <= 999;
     }
 
+    /// @dev A normal market settles against the price at its start boundary. Once that price can no
+    /// longer be recorded (no proof, no proposal, and the oracle's proposal window closed) the market is
+    /// certain to void, so no new pairs, orders, or executions are accepted; merge and cancel remain.
+    function _requireStrikeObtainable(Market storage m) private view {
+        if (m.ladderStrike == 0 && !oracle.priceable(m.version, m.start)) revert InvalidMarket();
+    }
+
     function split(MarketSpec calldata spec, uint128 quantity) external nonReentrant returns (bytes32 id) {
         id = _ensure(spec);
         Market storage m = markets[id];
         if (quantity == 0 || m.outcome != Outcome.Active) revert InvalidMarket();
+        _requireStrikeObtainable(m);
         _debit(msg.sender, T.USDC, quantity);
         _debit(msg.sender, m.token, uint256(quantity) * m.factor);
         _mintPair(m, quantity);
@@ -281,9 +289,11 @@ contract PimdMarkets is ReentrancyGuard {
         return _place(_ensure(spec), input);
     }
 
+    /// @dev A boundary somebody else recorded first is skipped: the attached proof is then unnecessary.
     function _prove(ProofSubmission[] calldata proofs) private {
         if (proofs.length > 2) revert InvalidMarket();
         for (uint256 i; i < proofs.length; ++i) {
+            if (oracle.price(proofs[i].version, proofs[i].boundary) != 0) continue;
             oracle.prove(proofs[i].version, proofs[i].boundary, proofs[i].proofs);
         }
     }
@@ -299,6 +309,13 @@ contract PimdMarkets is ReentrancyGuard {
         if (!input.immediateOrCancel && (input.expiry < block.timestamp + MIN_EXPIRY || input.expiry > m.end)) {
             revert InvalidOrder();
         }
+        _requireStrikeObtainable(m);
+        // The budget must at least pay the order's own full execution at its limit price: the maker fee
+        // for a resting order, the taker fee for an immediate one. Otherwise the order could never fill
+        // and would only occupy book priority and takers' matching steps.
+        bool down = _down(input.action);
+        uint256 floor = _fee(m, input.limitPrice, input.quantity, _price(m.version), input.immediateOrCancel, down);
+        if (input.feeBudget < floor) revert InvalidOrder();
         id = nextOrderId++;
         Order storage o = orders[id];
         o.market = mid;
@@ -334,7 +351,6 @@ contract PimdMarkets is ReentrancyGuard {
             p.down -= input.quantity;
             if (input.limitPrice > SHARE) o.cash = cash - input.quantity + ROUNDING_RESERVE;
         }
-        bool down = _down(o.action);
         _debit(msg.sender, T.USDC, o.cash + (down ? 0 : o.fee));
         _debit(msg.sender, m.token, o.asset + o.swapBudget + (down ? o.fee : 0));
         emit OrderPlaced(id, mid, msg.sender, o.action, input.quantity, input.limitPrice, o.expiry);
@@ -351,6 +367,7 @@ contract PimdMarkets is ReentrancyGuard {
             m.token == address(0) || m.outcome != Outcome.Active || block.timestamp >= m.end || maxSteps == 0
                 || maxSteps > MAX_STEPS
         ) revert InvalidOrder();
+        _requireStrikeObtainable(m);
         return _match(mid, maxSteps, 0);
     }
 

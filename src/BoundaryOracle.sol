@@ -113,15 +113,29 @@ contract BoundaryOracle is ReentrancyGuard, EIP712 {
         _record(version, boundary, p, true);
     }
 
+    /// @notice True while a price for the boundary exists or can still be recorded by a proof, a new
+    /// proposal, or a live proposal. Markets refuse trades whose start price can no longer exist.
+    function priceable(uint32 version, uint64 boundary) external view returns (bool) {
+        if (price[version][boundary] != 0 || block.timestamp + DISPUTE_WINDOW < uint256(boundary) + TIMEOUT) {
+            return true;
+        }
+        Proposal storage p = proposals[proposalId(version, boundary)];
+        if (p.proposer == address(0) || p.finished) return false;
+        return p.challenger == address(0) || block.timestamp < uint256(boundary) + TIMEOUT;
+    }
+
+    /// @notice A refunded proposal (oracle failure or timeout) frees its slot: a new proposal may follow
+    /// while the proposal window is open. A finalized or resolved proposal has recorded the price.
     function propose(uint32 version, uint64 boundary, uint256 proposed, uint64 firstBlock) external nonReentrant {
         registry.asset(version);
         bytes32 id = proposalId(version, boundary);
         if (
             block.chainid != 1 || !registry.isBoundary(boundary) || block.timestamp <= uint256(boundary) + PROOF_WINDOW
                 || block.timestamp + DISPUTE_WINDOW >= uint256(boundary) + TIMEOUT || price[version][boundary] != 0
-                || proposals[id].proposer != address(0) || proposed == 0 || proposed > T.MAX_PRICE || firstBlock == 0
-                || uint256(firstBlock) + 2 >= block.number
+                || (proposals[id].proposer != address(0) && !proposals[id].finished) || proposed == 0
+                || proposed > T.MAX_PRICE || firstBlock == 0 || uint256(firstBlock) + 2 >= block.number
         ) revert InvalidState();
+        delete proposals[id];
         Proposal storage p = proposals[id];
         p.proposer = msg.sender;
         p.version = version;
@@ -215,13 +229,14 @@ contract BoundaryOracle is ReentrancyGuard, EIP712 {
         IERC20(T.IMD).forceApprove(INTAKE, 0);
     }
 
+    /// @notice An unchallenged proposal is final once its challenge window has elapsed, whenever that is
+    /// observed: the window always closes before the boundary's timeout, so a late proposal is not lost.
     function finalize(uint32 version, uint64 boundary) external nonReentrant {
         bytes32 id = proposalId(version, boundary);
         Proposal storage p = proposals[id];
-        if (
-            p.proposer == address(0) || p.finished || p.challenger != address(0) || block.timestamp < p.deadline
-                || block.timestamp >= uint256(boundary) + TIMEOUT
-        ) revert InvalidState();
+        if (p.proposer == address(0) || p.finished || p.challenger != address(0) || block.timestamp < p.deadline) {
+            revert InvalidState();
+        }
         p.finished = true;
         credit[p.proposer] += BOND;
         _record(version, boundary, p.proposed, false);
@@ -255,7 +270,9 @@ contract BoundaryOracle is ReentrancyGuard, EIP712 {
             address cursor = asset.token;
             for (uint256 i; i < asset.hops; ++i) {
                 bool forward = cursor == asset.path[i].currency0;
-                value = forward ? Math.mulDiv(value, p.answers[i], 1e18) : Math.mulDiv(value, 1e18, p.answers[i]);
+                value = forward
+                    ? Math.mulDiv(value, p.answers[i], OracleRequest.HOP_BASE)
+                    : Math.mulDiv(value, OracleRequest.HOP_BASE, p.answers[i]);
                 cursor = forward ? asset.path[i].currency1 : asset.path[i].currency0;
             }
             if (value == 0 || value > T.MAX_PRICE) revert InvalidAnswer();
@@ -296,9 +313,14 @@ contract BoundaryOracle is ReentrancyGuard, EIP712 {
         _refund(r.proposal);
     }
 
+    /// @notice A disputed proposal the oracle never answered releases both bonds at the boundary's timeout.
+    /// An unchallenged proposal is never timed out; it is finalized instead.
     function timeout(uint32 version, uint64 boundary) external nonReentrant {
-        if (block.timestamp < uint256(boundary) + TIMEOUT) revert InvalidState();
-        _refund(proposalId(version, boundary));
+        bytes32 id = proposalId(version, boundary);
+        if (block.timestamp < uint256(boundary) + TIMEOUT || proposals[id].challenger == address(0)) {
+            revert InvalidState();
+        }
+        _refund(id);
     }
 
     function _refund(bytes32 id) private {

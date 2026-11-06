@@ -357,20 +357,131 @@ contract MarketsTest is MarketFixture {
         _assertConservation(1);
     }
 
-    function test_insufficientMakerFeeCancelledAndTakerFeeReverts() public {
+    function test_feeBudgetMustCoverOwnExecutionAtPlacement() public {
+        // At P = 1 the maker fee for 10 DOWN shares at 0.60 is 0.042 IMD and the taker fee for 10 UP
+        // shares is 0.294 USDC (see test_newLongAndShortMintAndFeeFormula).
         PimdMarkets.OrderInput memory i = _input(PimdMarkets.Action.BuyDown, 10e6, 600_000);
         i.feeBudget = 0;
         vm.prank(bob);
+        vm.expectRevert(PimdMarkets.InvalidOrder.selector);
         markets.place(spec, i);
+        i.feeBudget = 42e15 - 1;
+        vm.prank(bob);
+        vm.expectRevert(PimdMarkets.InvalidOrder.selector);
+        markets.place(spec, i);
+        i.feeBudget = 42e15;
+        vm.prank(bob);
+        uint64 maker = markets.place(spec, i);
+        assertTrue(markets.order(maker).resting);
+        i = _input(PimdMarkets.Action.BuyUp, 10e6, 600_000);
+        i.immediateOrCancel = true;
+        i.feeBudget = 294_000 - 1;
+        vm.prank(alice);
+        vm.expectRevert(PimdMarkets.InvalidOrder.selector);
+        markets.place(spec, i);
+        i.feeBudget = 294_000;
+        vm.prank(alice);
+        markets.place(spec, i);
+        assertEq(markets.order(maker).remaining, 0);
+        assertEq(markets.balance(owner, T.IMD), 42e15);
+        _assertConservation(2);
+    }
+
+    function test_insufficientMakerFeeCancelledAndTakerFeeReverts() public {
+        PimdMarkets.OrderInput memory i = _input(PimdMarkets.Action.BuyDown, 10e6, 600_000);
+        i.feeBudget = 42e15;
+        vm.prank(bob);
+        markets.place(spec, i);
+        // The asset price falls to 0.5 USD, so the IMD-denominated maker fee rises to 0.072 IMD and
+        // bob's resting budget no longer covers it.
+        prices.record(1, start + 300, 0.5e18);
         _place(carol, PimdMarkets.Action.BuyDown, 10e6, 600_000);
         i = _input(PimdMarkets.Action.BuyUp, 10e6, 600_000);
-        i.feeBudget = 0;
+        i.feeBudget = 36_000; // the maker floor at P = 0.5, far below the 252_000 taker fee
         vm.prank(alice);
         vm.expectRevert(PimdMarkets.InsufficientBalance.selector);
         markets.place(spec, i);
+        assertTrue(markets.order(1).resting);
         _place(alice, PimdMarkets.Action.BuyUp, 10e6, 600_000);
         assertEq(markets.order(1).remaining, 0);
+        assertFalse(markets.order(1).resting);
+        (, uint256 down) = markets.positions(mid, carol);
+        assertEq(down, 10e6);
         _assertConservation(3);
+    }
+
+    function test_normalMarketWhoseStrikeCannotBeRecordedIsFrozen() public {
+        spec.period = 3;
+        (spec.start,) = registry.bounds(3, start);
+        mid = markets.marketId(spec);
+        uint64 monthStart = spec.start;
+        // One second before the oracle's proposal window closes the market can still be created.
+        vm.warp(uint256(monthStart) + 3 days - 1 hours - 1);
+        PimdMarkets.OrderInput memory i = _input(PimdMarkets.Action.BuyUp, 100e6, 10_000);
+        i.expiry = uint64(block.timestamp + 10 days);
+        vm.prank(alice);
+        uint64 early = markets.place(spec, i);
+        assertTrue(markets.order(early).resting);
+        _split(alice, 5e6);
+        // From the moment no proof and no proposal can record the start price, the void is certain:
+        // no new order, pair or execution, while cancel and merge still release collateral.
+        vm.warp(uint256(monthStart) + 3 days - 1 hours);
+        vm.prank(bob);
+        vm.expectRevert(PimdMarkets.InvalidMarket.selector);
+        markets.place(spec, _input(PimdMarkets.Action.BuyDown, 100e6, 10_000));
+        vm.prank(bob);
+        vm.expectRevert(PimdMarkets.InvalidMarket.selector);
+        markets.split(spec, 1e6);
+        vm.expectRevert(PimdMarkets.InvalidMarket.selector);
+        markets.matchMarket(mid, 64);
+        vm.prank(alice);
+        markets.cancel(early);
+        vm.prank(alice);
+        markets.merge(mid, 5e6);
+        // A live proposal keeps the market open; its refund closes it again.
+        prices.setLiveProposal(1, monthStart, true);
+        i.expiry = uint64(block.timestamp + 10 days);
+        vm.prank(alice);
+        uint64 late = markets.place(spec, i);
+        prices.setLiveProposal(1, monthStart, false);
+        vm.prank(bob);
+        vm.expectRevert(PimdMarkets.InvalidMarket.selector);
+        markets.place(spec, _input(PimdMarkets.Action.BuyDown, 100e6, 10_000));
+        // A recorded start price reopens trading for the rest of the month.
+        prices.record(1, monthStart, 1e18);
+        vm.prank(bob);
+        markets.place(spec, _input(PimdMarkets.Action.BuyDown, 100e6, 10_000));
+        assertEq(markets.order(late).remaining, 0);
+        _assertConservation(3);
+        // A ladder at the same start never needs the start price.
+        spec.strike = 2e18;
+        _split(bob, 1e6);
+        _assertConservation(3);
+    }
+
+    function test_attachedProofsSkipBoundariesAlreadyRecorded() public {
+        PimdMarkets.ProofSubmission[] memory proofs = new PimdMarkets.ProofSubmission[](2);
+        proofs[0].version = 1;
+        proofs[0].boundary = start; // recorded in the fixture: skipped instead of reverting
+        proofs[1].version = 1;
+        proofs[1].boundary = start + 3600; // not recorded: proven and recorded now
+        vm.prank(alice);
+        markets.placeWithProofs(spec, _input(PimdMarkets.Action.BuyUp, 10e6, 600_000), proofs);
+        assertEq(prices.proofCalls(), 1);
+        assertEq(prices.price(1, start + 3600), 1e18);
+        _split(bob, 10e6);
+        vm.warp(start + 3600);
+        PimdMarkets.ProofSubmission[] memory again = new PimdMarkets.ProofSubmission[](1);
+        again[0] = proofs[1];
+        vm.prank(bob);
+        markets.claimWithProofs(mid, 10e6, 10e6, again);
+        assertEq(prices.proofCalls(), 1);
+        assertEq(uint8(markets.market(mid).outcome), uint8(PimdMarkets.Outcome.Refund));
+        PimdMarkets.ProofSubmission[] memory tooMany = new PimdMarkets.ProofSubmission[](3);
+        vm.prank(bob);
+        vm.expectRevert(PimdMarkets.InvalidMarket.selector);
+        markets.claimWithProofs(mid, 0, 0, tooMany);
+        _assertConservation(1);
     }
 
     function test_upWinDownWinTieAndVoid() public {
@@ -480,6 +591,7 @@ contract MarketsTest is MarketFixture {
         spec.period = 3;
         (spec.start,) = registry.bounds(3, start);
         mid = markets.marketId(spec);
+        prices.record(1, spec.start, 1e18); // the month started two weeks ago; its strike must exist
         _split(alice, 1e6);
         assertGe(markets.market(mid).end - markets.market(mid).start, 28 days);
         _assertConservation(0);

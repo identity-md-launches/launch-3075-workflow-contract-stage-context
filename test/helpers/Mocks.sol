@@ -57,13 +57,35 @@ contract MockToken is ERC20 {
     }
 }
 
+/// @dev Stands in for BoundaryOracle in market tests: prices are recorded where tests record them, a
+/// proof records `proofValue`, and `priceable` mirrors the oracle's window rule (one hour before the
+/// three-day timeout) unless a live proposal is simulated with `setLiveProposal`.
 contract MockPrices {
     mapping(uint32 => mapping(uint64 => uint256)) public price;
     mapping(uint32 => uint64) public latestBoundary;
+    mapping(uint32 => mapping(uint64 => bool)) public liveProposal;
+    uint256 public proofValue = 1e18;
+    uint256 public proofCalls;
 
     function record(uint32 version, uint64 boundary, uint256 value) external {
         price[version][boundary] = value;
         if (boundary >= latestBoundary[version]) latestBoundary[version] = boundary;
+    }
+
+    function setLiveProposal(uint32 version, uint64 boundary, bool live) external {
+        liveProposal[version][boundary] = live;
+    }
+
+    function prove(uint32 version, uint64 boundary, BoundaryProofVerifier.BlockProof[3] calldata) external {
+        require(price[version][boundary] == 0, "already recorded");
+        ++proofCalls;
+        price[version][boundary] = proofValue;
+        if (boundary >= latestBoundary[version]) latestBoundary[version] = boundary;
+    }
+
+    function priceable(uint32 version, uint64 boundary) external view returns (bool) {
+        if (price[version][boundary] != 0 || block.timestamp + 1 hours < uint256(boundary) + 3 days) return true;
+        return liveProposal[version][boundary];
     }
 }
 

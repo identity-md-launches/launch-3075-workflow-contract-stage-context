@@ -7,7 +7,7 @@ Validated on 2026-11-06 with Foundry **1.8.3**, Solidity **0.8.26**, Cancun, IR 
 | Check | Result |
 | --- | --- |
 | `forge build --sizes` | Pass; all six deployable contracts below EIP-170 and EIP-3860 limits |
-| `forge test` | **86 passed, 0 failed, 0 skipped** across eight suites |
+| `forge test` | **93 passed, 0 failed, 0 skipped** across eight suites |
 | Required fuzz seed | `0x575cc7802996bba860ac81954cece22175d55b79e4400b3dda66c716f8a27bdd` |
 | Fuzz cases | 256 per parameterized fuzz test |
 | Stateful accounting checks | 64 runs × 48 calls, with three invariant properties checked together |
@@ -22,8 +22,8 @@ Validated on 2026-11-06 with Foundry **1.8.3**, Solidity **0.8.26**, Cancun, IR 
 | --- | --- |
 | `LaunchTokenTest` | Fixed 10^27 supply, factory/deployer balance, name/symbol/decimals, exact transfers/allowances, forbidden mint and invalid transfers |
 | `RegistryTest` | Initial pool IDs, enumeration, hour/day/Monday/Gregorian months, leap centuries, fuzzed calendar bounds, authorization, immutable versions, invalid routes/units, initialization-only hook support |
-| `MarketsTest` | All four pairwise action combinations, price/time priority, partial fills, prices above 1 and very large prices, min value/ticks/expiry, IOC bounds, capped continuations, failed queued swaps, fee budgets, hints, splits/merges, all settlement outcomes, voids, claims/batches, version snapshots, pair caps, fractional-rounding fuzzing, token failures and reentrancy error verification |
-| `BoundaryOracleTest` | Proof timing, latest-price monotonicity, proposals, challenge windows, canonical questions, distinct request ID namespaces, valid/invalid signed responses, replay, block-hash consistency, panel/quorum, oracle fee bounds, atomic two-request rollback, deferred retries, bond conservation, failure and timeout refunds |
+| `MarketsTest` | All four pairwise action combinations, price/time priority, partial fills, prices above 1 and very large prices, min value/ticks/expiry, IOC bounds, capped continuations, failed queued swaps, fee-budget floors at placement and exhaustion later, frozen normal markets whose start price can no longer be recorded, attached proofs skipping recorded boundaries, hints, splits/merges, all settlement outcomes, voids, claims/batches, version snapshots, pair caps, fractional-rounding fuzzing, token failures and reentrancy error verification |
+| `BoundaryOracleTest` | Proof timing, latest-price monotonicity, proposals, challenge windows, canonical questions, distinct request ID namespaces, valid/invalid signed responses, replay, block-hash consistency, panel/quorum, oracle fee bounds, atomic two-request rollback, deferred retries, bond conservation, failure and timeout refunds, reopened slots after a refund with dead stale callbacks, late unchallenged finalization after the timeout, the `priceable` view across every window, and 10^36-based hop answers for low-valued routes |
 | `BoundaryProofTest` | Genuine three-block/two-pool account and storage proofs, corrupt nodes/headers, wrong pools, wrong block proofs, boundary brackets, history range, extra/missing nodes, strict RLP, inline trie branch/extension/leaf vectors, missing keys, fuzzed proof corruption |
 | `SwapTest` | Authenticated unlock callback, exact-output route, signed deltas, intermediate netting, maximum input, short output, token quirks, reentrancy error verification, input conservation fuzzing |
 | `DeploymentTest` | Empty-chain constructors, explicit owner arguments, whole launch supply retained by a simulated factory, deployed runtime size and reachable forbidden-opcode checks |

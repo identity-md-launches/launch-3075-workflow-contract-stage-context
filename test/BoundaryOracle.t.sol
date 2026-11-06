@@ -94,10 +94,12 @@ contract BoundaryOracleTest is Test {
         oracle.onOracleResult(rid, a, sig);
     }
 
+    /// @dev Hop answers are currency1 atomic units per 1e36 currency0 atomic units: 1000 IMD per ETH
+    /// and 2000 USDC per ETH compose to 2 USD per IMD.
     function _resolve(bytes32 id) internal {
         BoundaryOracle.Proposal memory p = oracle.proposal(id);
-        _deliver(p.requests[1], 2000e6);
-        _deliver(p.requests[0], 1000e18);
+        _deliver(p.requests[1], 2000e24);
+        _deliver(p.requests[0], 1000e36);
     }
 
     function test_proofRecordsOnceAndLatestNeverMovesBackwards() public {
@@ -195,6 +197,125 @@ contract BoundaryOracleTest is Test {
         oracle.timeout(1, boundary);
         assertEq(oracle.credit(alice), 10e18);
         assertEq(oracle.credit(bob), 10e18);
+        // The window is closed, so the released slot cannot be reused and the boundary stays unpriced.
+        vm.prank(bob);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, boundary, 2e18, n);
+        assertFalse(oracle.priceable(1, boundary));
+    }
+
+    function test_refundedProposalFreesSlotAndStaleCallbacksAreIgnored() public {
+        // A bogus window (block 1 cannot straddle the boundary) is disputed and refused by the panel.
+        vm.warp(boundary + 27 hours + 1);
+        vm.prank(alice);
+        oracle.propose(1, boundary, 1, 1);
+        vm.prank(bob);
+        oracle.dispute(1, boundary, 1e18);
+        bytes32 id = oracle.proposalId(1, boundary);
+        bytes32 stale = oracle.proposal(id).requests[0];
+        bytes32 staleSecond = oracle.proposal(id).requests[1];
+        vm.prank(address(intake));
+        oracle.onFailure(stale, 1, keccak256("refused: window does not straddle the boundary"), 5, 0, "");
+        assertEq(oracle.credit(alice), 10e18);
+        assertEq(oracle.credit(bob), 10e18);
+        assertTrue(oracle.priceable(1, boundary), "window still open: boundary remains priceable");
+        // The honest price can now be proposed for the rest of the window, by anyone.
+        vm.prank(bob);
+        oracle.propose(1, boundary, 2e18, n);
+        BoundaryOracle.Proposal memory p = oracle.proposal(id);
+        assertEq(p.proposer, bob);
+        assertEq(p.challenger, address(0));
+        assertEq(p.received, 0);
+        assertEq(p.requests[0], bytes32(0));
+        assertFalse(p.finished);
+        // The refused proposal's requests are dead: neither a late answer nor a late failure touches the
+        // new proposal.
+        BoundaryOracle.Attestation memory a = _attestation(stale, 1000e36);
+        bytes memory sig = _signature(a);
+        vm.prank(address(intake));
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.onOracleResult(stale, a, sig);
+        vm.prank(address(intake));
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.onFailure(staleSecond, 2, bytes32(0), 5, 3, "");
+        // The live proposal still blocks a third one, and resolves normally when disputed.
+        vm.prank(alice);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, boundary, 3e18, n);
+        vm.prank(alice);
+        oracle.dispute(1, boundary, 1e18);
+        _resolve(id);
+        assertEq(oracle.price(1, boundary), 2e18);
+        assertEq(oracle.credit(bob), 10e18 + 20e18 - 1e18);
+        assertEq(oracle.credit(alice), 10e18 + 1e18);
+        assertEq(imd.balanceOf(address(oracle)), oracle.credit(alice) + oracle.credit(bob));
+        assertEq(imd.balanceOf(address(intake)), 2e18);
+    }
+
+    function test_lateUnchallengedProposalFinalizesAfterTimeoutAndCannotBeTimedOut() public {
+        vm.warp(boundary + 3 days - 1 hours - 1);
+        vm.prank(alice);
+        oracle.propose(1, boundary, 123e16, n);
+        vm.prank(alice);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, boundary - 3600, 1e18, n); // the window for that earlier boundary is closed
+        vm.warp(boundary + 3 days + 12 hours);
+        assertTrue(oracle.priceable(1, boundary));
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.timeout(1, boundary);
+        oracle.finalize(1, boundary);
+        assertEq(oracle.price(1, boundary), 123e16);
+        assertEq(oracle.credit(alice), 10e18);
+    }
+
+    function test_priceableFollowsProofWindowProposalWindowAndLiveProposals() public {
+        assertTrue(oracle.priceable(1, boundary));
+        assertTrue(oracle.priceable(1, boundary + 7 days));
+        vm.warp(boundary + 27 hours + 1);
+        assertTrue(oracle.priceable(1, boundary));
+        vm.warp(boundary + 3 days - 1 hours);
+        assertFalse(oracle.priceable(1, boundary));
+        vm.warp(boundary + 3 days - 1 hours - 1);
+        vm.prank(alice);
+        oracle.propose(1, boundary, 2e18, n);
+        vm.prank(bob);
+        oracle.dispute(1, boundary, 1e18);
+        vm.warp(boundary + 3 days - 1);
+        assertTrue(oracle.priceable(1, boundary));
+        vm.warp(boundary + 3 days);
+        assertFalse(oracle.priceable(1, boundary));
+        oracle.timeout(1, boundary);
+        assertFalse(oracle.priceable(1, boundary));
+        vm.warp(boundary + 7 days + 1);
+        BoundaryProofVerifier.BlockProof[3] memory proof;
+        oracle.prove(1, boundary + 7 days, proof);
+        assertTrue(oracle.priceable(1, boundary + 7 days));
+    }
+
+    function test_lowValuedHopAnswerStaysNonzeroWithWideBase() public {
+        // An 18-decimal token worth 4e-7 USD: 1e18 atomic units are 0.4 USDC atomic units, so a 1e18
+        // base would floor to 0, while the 1e36 base asks for 4e17.
+        T.Asset memory a;
+        a.token = address(0x1234);
+        a.unitsPerShare = 1e18;
+        a.maxOpenPairs = 1e12;
+        a.hops = 1;
+        a.path[0] = T.PoolKey(a.token, T.USDC, 3000, 60, address(0));
+        uint32 version = registry.configureAsset(a);
+        vm.warp(boundary + 27 hours + 1);
+        vm.prank(alice);
+        oracle.propose(version, boundary, 4e11, n);
+        vm.prank(bob);
+        oracle.dispute(version, boundary, 0.5e18);
+        bytes32 id = oracle.proposalId(version, boundary);
+        bytes32 rid = oracle.proposal(id).requests[0];
+        string memory q = OracleRequest.question(registry.asset(version), 0, boundary, n, address(oracle), version);
+        assertTrue(bytes(q).length > 0);
+        (, bytes32 stored,,) = oracle.requests(rid);
+        assertEq(stored, OracleRequest.questionHash(q, n));
+        _deliver(rid, 4e17);
+        assertEq(oracle.price(version, boundary), 4e11);
+        assertEq(oracle.credit(alice), 20e18 - 0.5e18);
     }
 
     function test_costFallbackCapAndAtomicRequestFailure() public {

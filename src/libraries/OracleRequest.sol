@@ -7,6 +7,11 @@ import {MarketTypes as T} from "./MarketTypes.sol";
 library OracleRequest {
     using Strings for uint256;
 
+    /// @dev Each hop is quoted as currency1 atomic units per HOP_BASE currency0 atomic units. The wide
+    /// base keeps a nonzero, precise answer for a hop whose currency0 is worth far less than one
+    /// currency1 atomic unit per 1e18 units; the largest v4 ratio times HOP_BASE still fits uint256.
+    uint256 internal constant HOP_BASE = 1e36;
+
     function question(
         T.Asset memory a,
         uint256 hop,
@@ -17,13 +22,13 @@ library OracleRequest {
     ) internal pure returns (string memory) {
         T.PoolKey memory p = a.path[hop];
         return string.concat(
-            "What is the median currency1 atomic units per 1e18 currency0 atomic units for Uniswap v4 pool ",
+            "What is the median currency1 atomic units per 1e36 currency0 atomic units for Uniswap v4 pool ",
             Strings.toHexString(uint256(T.poolId(p)), 32),
             " on Ethereum, over blocks ",
             uint256(firstBlock).toString(),
             " through ",
             uint256(firstBlock + 2).toString(),
-            "? Use univ4-spot, all three blocks, sqrtPriceX96 squared times 1e18 divided by 2^192, rounded down. ",
+            "? Use univ4-spot, all three blocks, sqrtPriceX96 squared times 1e36 divided by 2^192, rounded down. ",
             "Verify timestamp(firstBlock) <= ",
             uint256(boundary).toString(),
             " < timestamp(firstBlock+1); refuse if false. PoolManager 0x000000000004444c5dc75cb358380d2e3de08a90. Consumer ",

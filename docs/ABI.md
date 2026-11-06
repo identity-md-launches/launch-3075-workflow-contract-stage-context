@@ -29,7 +29,7 @@ The complete JSON ABI for each deployable Solidity contract is in `docs/abi/<Con
 | `split(spec, quantity)` | Create if necessary, escrow both coins, issue equal outcome balances |
 | `merge(id, quantity)` | Burn both outcomes and release collateral before settlement |
 | `place(spec, input)` | Escrow, match, and optionally rest an order; returns its ID |
-| `placeWithProofs(spec, input, proofs)` | Record up to two boundary proofs, then place atomically |
+| `placeWithProofs(spec, input, proofs)` | Record up to two boundary proofs (already recorded boundaries are skipped), then place atomically |
 | `matchMarket(id, maxSteps)` | Permissionlessly continue capped matching of the best bid/ask; returns number of fills |
 | `cancel(order)` | Maker-only cancellation, including after market end/settlement |
 | `expire(ids)` | Anyone releases up to 64 expired orders or orders in settled markets; harmless on inactive IDs |
@@ -50,7 +50,7 @@ An existing zero position in `claimAll` is skipped. The batch does not cancel op
 5. `immediateOrCancel`: true for a market sweep whose unfilled quantity is returned.
 6. `assetOnly`: permitted only for BuyDown. The swap only funds its USDC contribution.
 7. `maxSwapInput`: asset minor units, in addition to pair collateral and the fee budget. For an asset-only short below USD 1, this must cover the boundary estimate plus 5%.
-8. `feeBudget`: fee coin reserve, USDC for UP actions and asset for DOWN actions. It is **not** a rate. Reserve enough for taker execution and any later maker executions; unspent amounts are refunded.
+8. `feeBudget`: fee coin reserve, USDC for UP actions and asset for DOWN actions. It is **not** a rate. It must at least equal `feeQuote(market, limitPrice, quantity, immediateOrCancel, down)` at placement (the maker fee for a resting order, the taker fee for an IOC order), else `InvalidOrder`. Reserve enough for taker execution and any later maker executions; unspent amounts are refunded.
 9. `insertionHint`: a preceding active order on the same market/side, or zero for bounded automatic search. A zero hint is also valid when inserting ahead of the current head.
 10. `maxSteps`: 1–64 total examined maker orders.
 
@@ -70,13 +70,14 @@ Additional cash collateral of 1024 USDC atomic units covers per-fill rounding fo
 | `oracleCost(version)` | Per-question and total quote; throws when the total exceeds the 10-IMD losing bond |
 | `dispute(version, boundary, maxCost)` | Lock a second bond and fee budget, challenge, and attempt the atomic oracle requests |
 | `retryResolution(version, boundary, maxCost)` | Anyone advances an additional budget after a deferred request; excess becomes their credit |
-| `finalize(version, boundary)` | Finalize an unchallenged proposal after its hour and before its three-day timeout |
+| `finalize(version, boundary)` | Finalize an unchallenged proposal any time after its hour, including after the three-day timeout |
 | `onOracleResult(intakeRequestId, attestation, signature)` | Intake-only asynchronous success, with EIP-712 validation |
 | `onFailure(intakeRequestId, status, reason, panelSize, agreed, details)` | Intake-only failure, status 1 or 2; refund bonds and terminate pending requests |
-| `timeout(version, boundary)` | Refund a proposal's outstanding bonds at boundary + three days |
+| `timeout(version, boundary)` | Refund a disputed proposal's two bonds at boundary + three days when the oracle never answered |
+| `priceable(version, boundary)` | True while a price exists or can still be recorded (proof window, proposal window, or a live proposal) |
 | `withdrawCredit()` | Withdraw the caller's bond/refund/reward credit in IMD |
 
-`requestResolution` is an implementation subcall and rejects every external caller except the oracle contract itself. A `ResolutionDeferred` event means the challenge is effective but no service fee was spent; it can be retried. A successful request's service cost is reimbursed to its actual fee payer only on successful resolution. A failed oracle request or timed-out result returns the two bonds; spent service costs stay spent.
+`requestResolution` is an implementation subcall and rejects every external caller except the oracle contract itself. A `ResolutionDeferred` event means the challenge is effective but no service fee was spent; it can be retried. A successful request's service cost is reimbursed to its actual fee payer only on successful resolution. A failed oracle request or timed-out result returns the two bonds; spent service costs stay spent. A refunded proposal emits `ProposalClosed(id, address(0), true)` and frees its slot: a later `Proposed` with the same id is a new proposal, and the old `OracleRequested` ids are dead. Each hop question is answered as currency1 atomic units per 10^36 currency0 atomic units. Normal markets call `priceable` for their start boundary on `place`, `split` and `matchMarket`, and revert `InvalidMarket` when it is false.
 
 The full `Attestation` tuple is in the ABI. The EIP-712 struct name is `OracleAttestation`, domain name `IdentityMD Oracle`, version `2`, chain ID 1, verifying contract the deployed `BoundaryOracle`. `digest(attestation)` exposes the exact digest. Signed request IDs are distinct from local Intake IDs. Pairing requires the stored canonical question hash and pinned block window; consumers must not enforce equality of these two different ID namespaces.
 
