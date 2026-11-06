@@ -1,0 +1,50 @@
+{
+  "kind": "evm_project",
+  "token": {
+    "contract": "LaunchToken",
+    "name": "pIMD",
+    "symbol": "pIMD",
+    "decimals": 18
+  },
+  "contracts": [
+    {
+      "contract": "PimdRegistry",
+      "constructorArgs": [
+        "$owner"
+      ]
+    },
+    {
+      "contract": "BoundaryProofVerifier",
+      "constructorArgs": []
+    },
+    {
+      "contract": "BoundaryOracle",
+      "constructorArgs": [
+        "$contract:PimdRegistry",
+        "$contract:BoundaryProofVerifier"
+      ]
+    },
+    {
+      "contract": "PimdSwap",
+      "constructorArgs": [
+        "$contract:PimdRegistry"
+      ]
+    },
+    {
+      "contract": "PimdMarkets",
+      "constructorArgs": [
+        "$owner",
+        "$contract:PimdRegistry",
+        "$contract:BoundaryOracle",
+        "$contract:PimdSwap"
+      ]
+    }
+  ],
+  "pool": {
+    "pairedCurrency": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+    "fee": 12500,
+    "tickSpacing": 60,
+    "initialPrice": "79228162514264337593543950336"
+  },
+  "notes": "pIMD: a fully onchain Up/Down prediction market on the IMD price (Ethereum mainnet). LaunchToken (pIMD) is the fixed-supply 18-decimal launch token with no constructor arguments, no owner and no mint, fee, pause or upgrade functions; the factory splits its supply. Application contracts, in constructor dependency order: PimdRegistry(owner) holds the market periods (1 h, 1 day, 1 week, calendar month) and assets (IMD at launch), with the fixed IMD->ETH->USDC Uniswap v4 price and swap path; the owner may add periods and assets for future markets. BoundaryProofVerifier() verifies RLP block headers and eth_getProof storage proofs of PoolManager slot0 for boundary prices; it is stateless. BoundaryOracle(registry, verifier) records one price per boundary from proofs, with the optimistic 10 IMD bond fallback and the IdentityMD oracle dispute path. PimdSwap(registry) performs the exact-output IMD->USDC swap used to pay the USDC leg of a DOWN order. PimdMarkets(owner, registry, oracle, swapper) holds internal USDC/IMD balances, mints and settles UP/DOWN share pairs, runs the mirrored order book and collects maker/taker fees. $owner, the launch's owner, is the only privileged role: it receives market fees and configures future periods and assets in the registry; it has no access to user funds and no pause or upgrade. The factory (msg.sender) is never an owner. Constructors are nonpayable, make no external calls and need no initialization calls. No application contract is allocated any launch supply; PimdMarkets only holds USDC and IMD that users deposit after launch. The pool pairs pIMD with IMD at the launch policy's 1.25% fee; the factory supplies the LP, MerkleDistributor and the initialization-only pool guard. The deployer derives the opening price from the policy's 2,500 IMD opening cap; pool.initialPrice is written as the launch facts give it."
+}
