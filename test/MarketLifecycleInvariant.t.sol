@@ -22,6 +22,7 @@ contract MarketLifecycleHandler is Test {
     uint256 public donatedAsset;
     uint256 public trades;
     uint256 public claims;
+    uint256 public frozenRefusals;
 
     constructor(PimdMarkets m, MockPrices p, address[4] memory actors, PimdMarkets.MarketSpec[] memory s) {
         markets = m;
@@ -42,7 +43,15 @@ contract MarketLifecycleHandler is Test {
         max = _min(max, _min(m.maxPairs - m.pairs, 50e6));
         if (max == 0) return;
         uint128 q = uint128(bound(raw, 1, max));
+        bool frozen = m.ladderStrike == 0 && !prices.priceable(m.version, m.start);
         vm.prank(user);
+        if (frozen) {
+            // The start price can no longer exist: the market is a certain void and refuses new pairs.
+            vm.expectRevert(PimdMarkets.InvalidMarket.selector);
+            markets.split(specs[k], q);
+            ++frozenRefusals;
+            return;
+        }
         markets.split(specs[k], q);
     }
 
@@ -304,6 +313,10 @@ contract MarketLifecycleInvariantTest is MarketFixture {
         handler.expire(2);
         assertFalse(markets.order(2).resting);
         handler.claim(2, 0, 10e6, 10e6);
+        // Market 2 never got its start price and the proposal window has closed: new pairs are refused.
+        vm.warp(uint256(start) + 7200 + 3 days);
+        handler.split(0, 2, 1e6);
+        assertEq(handler.frozenRefusals(), 1);
         handler.settle(2, true);
         assertEq(uint8(markets.market(ids[2]).outcome), uint8(PimdMarkets.Outcome.Refund));
         handler.claim(1, 2, 1, 1);

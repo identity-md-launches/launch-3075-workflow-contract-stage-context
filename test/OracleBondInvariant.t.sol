@@ -21,6 +21,7 @@ contract OracleBondHandler is Test {
     uint256 public servicePaid;
     uint256 public donations;
     uint256 public successfulAnswers;
+    uint256 public reopened;
     mapping(bytes32 => bool) public closed;
     mapping(uint64 => uint256) public finalPrices;
 
@@ -35,10 +36,21 @@ contract OracleBondHandler is Test {
     function propose(uint8 which, uint8 who, bool correct) public {
         uint64 boundary = BASE + uint64(which % COUNT) * 3600;
         BoundaryOracle.Proposal memory p = oracle.proposal(oracle.proposalId(1, boundary));
-        if (p.proposer != address(0) || block.timestamp + 1 hours >= uint256(boundary) + 3 days) return;
+        if (block.timestamp + 1 hours >= uint256(boundary) + 3 days || oracle.price(1, boundary) != 0) return;
+        bytes32 id = oracle.proposalId(1, boundary);
+        if (p.proposer != address(0) && !p.finished) {
+            // A live proposal holds the slot.
+            vm.prank(users[who % 4]);
+            vm.expectRevert(BoundaryOracle.InvalidState.selector);
+            oracle.propose(1, boundary, correct ? 2e18 : 1e18, FIRST);
+            return;
+        }
+        // Either a fresh slot or one freed by a refund: both accept a new proposal.
+        if (p.finished) ++reopened;
         vm.prank(users[who % 4]);
         oracle.propose(1, boundary, correct ? 2e18 : 1e18, FIRST);
         paidIn += 10e18;
+        closed[id] = false;
     }
 
     function dispute(uint8 which, uint8 who) public {
@@ -129,10 +141,10 @@ contract OracleBondHandler is Test {
         uint64 boundary = BASE + uint64(which % COUNT) * 3600;
         bytes32 id = oracle.proposalId(1, boundary);
         BoundaryOracle.Proposal memory p = oracle.proposal(id);
-        if (
-            p.proposer == address(0) || p.finished || p.challenger != address(0) || block.timestamp < p.deadline
-                || block.timestamp >= uint256(boundary) + 3 days
-        ) return;
+        // A late but unchallenged proposal still finalizes after the boundary's timeout.
+        if (p.proposer == address(0) || p.finished || p.challenger != address(0) || block.timestamp < p.deadline) {
+            return;
+        }
         oracle.finalize(1, boundary);
         closed[id] = true;
         finalPrices[boundary] = p.proposed;
@@ -143,6 +155,12 @@ contract OracleBondHandler is Test {
         bytes32 id = oracle.proposalId(1, boundary);
         BoundaryOracle.Proposal memory p = oracle.proposal(id);
         if (p.proposer == address(0) || p.finished || block.timestamp < uint256(boundary) + 3 days) return;
+        if (p.challenger == address(0)) {
+            // Never timed out: it is finalized instead.
+            vm.expectRevert(BoundaryOracle.InvalidState.selector);
+            oracle.timeout(1, boundary);
+            return;
+        }
         oracle.timeout(1, boundary);
         closed[id] = true;
     }
@@ -205,6 +223,23 @@ contract OracleBondInvariantTest is OracleFixture {
         targetSelector(FuzzSelector(address(handler), selectors));
     }
 
+    function test_handlerReopensRefundedSlotAndFinalizesLateProposal() public {
+        // Boundary 2 was disputed with the intake unavailable: retry, then fail it so the slot is refunded.
+        handler.retry(2, 0, 10e18);
+        handler.fail(2, true);
+        assertTrue(oracle.proposal(oracle.proposalId(1, BOUNDARY + 7200)).finished);
+        handler.propose(2, 1, true);
+        assertEq(handler.reopened(), 1);
+        assertEq(oracle.proposal(oracle.proposalId(1, BOUNDARY + 7200)).proposer, challenger);
+        vm.warp(BOUNDARY + 7200 + 3 days + 1);
+        handler.timeout(2);
+        handler.finalize(2);
+        assertEq(oracle.price(1, BOUNDARY + 7200), 2e18);
+        invariant_allBondsCreditsFeesAndDonationsAreAccountedFor();
+        invariant_finalPricesStayImmutableAndRequestsAreConsumedOnce();
+        afterInvariant();
+    }
+
     function invariant_allBondsCreditsFeesAndDonationsAreAccountedFor() public view {
         uint256 obligations;
         address[4] memory users = [proposer, challenger, sponsor, stranger];
@@ -256,7 +291,9 @@ contract OracleBondInvariantTest is OracleFixture {
         for (uint64 i; i < 6; ++i) {
             uint64 boundary = BOUNDARY + i * 3600;
             BoundaryOracle.Proposal memory p = oracle.proposal(oracle.proposalId(1, boundary));
-            if (p.proposer != address(0) && !p.finished) oracle.timeout(1, boundary);
+            if (p.proposer == address(0) || p.finished) continue;
+            if (p.challenger == address(0)) oracle.finalize(1, boundary);
+            else oracle.timeout(1, boundary);
         }
         address[4] memory users = [proposer, challenger, sponsor, stranger];
         for (uint256 i; i < users.length; ++i) {

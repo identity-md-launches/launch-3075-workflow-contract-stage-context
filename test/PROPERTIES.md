@@ -36,6 +36,15 @@ Oracle custody equals outstanding proposal/challenge bonds plus withdrawable cre
 
 Swap checks compare user balance changes, actual manager balances, exact requested output and independently accumulated spend/output totals. The swapper retains only tracked donations between calls. The token suite models balances and allowances independently instead of summing only the contract's own reported aggregates.
 
+## Revision: reopened oracle slots, late finalization, frozen markets and fee floors
+
+- `OracleAdversarial.t.sol`: an unchallenged proposal can never be timed out and still finalizes after the boundary's timeout; a disputed one times out only at `boundary + 3 days`. A refunded slot reopens a fresh proposal (no inherited challenger, requests or answers), and the dead proposal's callbacks (`onOracleResult`, `onFailure`) are refused before and after the new dispute. A live or recorded slot refuses another proposal. `priceable` is checked at each window edge and fuzzed against what a proposal can actually still do.
+- `OracleBondInvariant.t.sol`: the handler re-proposes refunded slots, finalizes late unchallenged proposals, expects `timeout` to revert for unchallenged ones, and settles every open proposal by the right route at campaign end. Bond custody identities are unchanged.
+- `MarketLifecycleInvariant.t.sol`: `split` on a normal market whose start price can no longer be recorded must revert `InvalidMarket`. Custody stays exact.
+- `ProofTradingIntegration.t.sol`: a placement with no recorded price for the version reverts `MissingPrice`, and an attached proof makes it work. A proof somebody else already recorded is skipped. A fee budget one unit below `feeQuote` is refused for both maker and taker.
+
+No defects were found in this revision, so no `.imd-findings.json` is filed. Note for operators: settlement does not finalize pending proposals itself. An unchallenged proposal for a market's end boundary must be finalized before `end + 3 days`, or anyone may void the market first. The brief specifies this void rule.
+
 ## Test boundaries
 
 The additional tests are offline. Oracle signatures use a local ERC-1271 fixture; they do not claim a live service attestation. The swap manager is a deterministic exchange and signed-debt model, not a Uniswap liquidity/pricing simulation. The integration suite uses genuine historical Ethereum proof bytes with a fixed local EIP-2935 anchor. The pre-existing `fork/MainnetFork.t.sol` remains the separate live-fork integration suite.

@@ -67,15 +67,152 @@ contract OracleAdversarialTest is OracleFixture {
         assertEq(oracle.credit(proposer), 10e18);
     }
 
-    function test_atTimeoutUncontestedBondRefundsWithoutRecordingLatePrice() public {
+    /// @dev Revised rule: an unchallenged proposal is never timed out; its window always closed before the
+    /// timeout, so it still finalizes when first observed afterwards.
+    function test_atTimeoutUncontestedProposalCannotBeTimedOutAndStillFinalizes() public {
         bytes32 id = _propose(2e18);
         vm.warp(BOUNDARY + 3 days);
+        bytes32 beforeState = _snapshot(id);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.timeout(1, BOUNDARY);
+        assertEq(_snapshot(id), beforeState);
+        vm.warp(BOUNDARY + 30 days);
+        oracle.finalize(1, BOUNDARY);
+        assertTrue(oracle.proposal(id).finished);
+        assertEq(oracle.price(1, BOUNDARY), 2e18);
+        assertEq(oracle.credit(proposer), 10e18);
         vm.expectRevert(BoundaryOracle.InvalidState.selector);
         oracle.finalize(1, BOUNDARY);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
         oracle.timeout(1, BOUNDARY);
-        assertTrue(oracle.proposal(id).finished);
-        assertEq(oracle.price(1, BOUNDARY), 0);
         assertEq(oracle.credit(proposer), 10e18);
+    }
+
+    function test_timeoutWithoutAnyProposalOrBeforeTimeoutIsRefused() public {
+        vm.warp(BOUNDARY + 3 days);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.timeout(1, BOUNDARY);
+        vm.warp(BOUNDARY + 3 days - 1 hours - 1);
+        _disputed(2e18);
+        vm.warp(BOUNDARY + 3 days - 1);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.timeout(1, BOUNDARY);
+        vm.warp(BOUNDARY + 3 days);
+        oracle.timeout(1, BOUNDARY);
+        assertEq(oracle.price(1, BOUNDARY), 0);
+        assertFalse(oracle.priceable(1, BOUNDARY), "a timed-out boundary can never be priced");
+        vm.prank(stranger);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, BOUNDARY, 1e18, FIRST_BLOCK);
+    }
+
+    function test_refundedSlotReopensAndDeadRequestsCannotTouchTheNewProposal() public {
+        bytes32 id = _disputed(2e18);
+        bytes32 oldFirst = oracle.proposal(id).requests[0];
+        bytes32 oldSecond = oracle.proposal(id).requests[1];
+        assertTrue(oldFirst != bytes32(0) && oldSecond != bytes32(0));
+        _deliver(oldFirst, 1000e18);
+        vm.prank(address(intake));
+        oracle.onFailure(oldSecond, 2, bytes32(0), 5, 3, "");
+        assertTrue(oracle.proposal(id).finished);
+        assertTrue(oracle.priceable(1, BOUNDARY), "the proposal window is still open");
+
+        vm.warp(block.timestamp + 10);
+        vm.prank(stranger);
+        oracle.propose(1, BOUNDARY, 2e18, FIRST_BLOCK);
+        BoundaryOracle.Proposal memory fresh = oracle.proposal(id);
+        assertEq(fresh.proposer, stranger);
+        assertEq(fresh.challenger, address(0));
+        assertFalse(fresh.finished);
+        assertFalse(fresh.requested);
+        assertEq(fresh.received, 0);
+        assertEq(fresh.answers[0], 0);
+        assertEq(fresh.requests[0], bytes32(0));
+
+        // The dead proposal's callbacks are refused before and after the new dispute.
+        BoundaryOracle.Attestation memory stale = _answer(oldSecond, 2000e6);
+        bytes memory staleSig = _signature(stale);
+        vm.prank(address(intake));
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.onOracleResult(oldSecond, stale, staleSig);
+        vm.prank(sponsor);
+        oracle.dispute(1, BOUNDARY, 1e18);
+        bytes32 newFirst = oracle.proposal(id).requests[0];
+        bytes32 newSecond = oracle.proposal(id).requests[1];
+        assertTrue(newFirst != oldFirst && newSecond != oldSecond);
+        vm.prank(address(intake));
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.onOracleResult(oldSecond, stale, staleSig);
+        vm.prank(address(intake));
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.onFailure(oldSecond, 1, bytes32(0), 5, 3, "");
+        assertFalse(oracle.proposal(id).finished, "a dead request cannot refund the live proposal");
+
+        _deliver(newFirst, 1000e18);
+        _deliver(newSecond, 2000e6);
+        assertEq(oracle.price(1, BOUNDARY), 2e18);
+        assertTrue(oracle.proposal(id).finished);
+        vm.prank(proposer);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, BOUNDARY, 1e18, FIRST_BLOCK);
+    }
+
+    function test_liveOrFinalizedProposalBlocksAnotherProposal() public {
+        bytes32 id = _propose(2e18);
+        vm.prank(stranger);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, BOUNDARY, 1e18, FIRST_BLOCK);
+        vm.prank(challenger);
+        oracle.dispute(1, BOUNDARY, 1e18);
+        vm.prank(stranger);
+        vm.expectRevert(BoundaryOracle.InvalidState.selector);
+        oracle.propose(1, BOUNDARY, 1e18, FIRST_BLOCK);
+        assertEq(oracle.proposal(id).proposer, proposer);
+    }
+
+    function test_priceableAcrossEveryWindow() public {
+        uint64 b = BOUNDARY;
+        assertTrue(oracle.priceable(1, b));
+        vm.warp(b + 3 days - 1 hours - 1);
+        assertTrue(oracle.priceable(1, b), "last second a proposal can still be made");
+        vm.warp(b + 3 days - 1 hours);
+        assertFalse(oracle.priceable(1, b), "no price, no proposal, window closed");
+        vm.warp(b + 3 days - 1 hours - 1);
+        _propose(2e18);
+        vm.warp(b + 30 days);
+        assertTrue(oracle.priceable(1, b), "an unchallenged proposal can always be finalized");
+        oracle.finalize(1, b);
+        assertTrue(oracle.priceable(1, b));
+
+        uint64 c = BOUNDARY + 3600;
+        vm.warp(c + 3 days - 1 hours - 1);
+        vm.prank(proposer);
+        oracle.propose(1, c, 2e18, FIRST_BLOCK);
+        vm.prank(challenger);
+        oracle.dispute(1, c, 1e18);
+        vm.warp(c + 3 days - 1);
+        assertTrue(oracle.priceable(1, c), "a disputed proposal can resolve until the timeout");
+        vm.warp(c + 3 days);
+        assertFalse(oracle.priceable(1, c), "an unanswered dispute is dead at the timeout");
+    }
+
+    /// forge-config: default.fuzz.runs = 512
+    function testFuzz_priceableNeverClaimsAnUnreachablePrice(uint256 rawTime) public {
+        uint256 t = bound(rawTime, BOUNDARY + 27 hours + 1, BOUNDARY + 10 days);
+        vm.warp(t);
+        bool claimed = oracle.priceable(1, BOUNDARY);
+        bool canPropose = t + 1 hours < uint256(BOUNDARY) + 3 days;
+        assertEq(claimed, canPropose);
+        if (canPropose) {
+            _propose(1e18);
+            vm.warp(oracle.proposal(oracle.proposalId(1, BOUNDARY)).deadline);
+            oracle.finalize(1, BOUNDARY);
+            assertEq(oracle.price(1, BOUNDARY), 1e18);
+        } else {
+            vm.prank(proposer);
+            vm.expectRevert(BoundaryOracle.InvalidState.selector);
+            oracle.propose(1, BOUNDARY, 1e18, FIRST_BLOCK);
+        }
     }
 
     function test_invalidProposalValuesAndBlockWindowNeverPullBond() public {

@@ -121,7 +121,10 @@ contract ProofTradingIntegrationTest is Test {
         _assertNothingCreated();
     }
 
+    /// @dev Placement now needs a recorded boundary price for the fee floor, so the resting bid is placed
+    /// after an earlier boundary is finalized optimistically; F.BOUNDARY itself stays unproven.
     function test_failedIncomingSwapRollsBackProofAndPreservesRestingBid() public {
+        _seedEarlierOptimisticPrice();
         PimdMarkets.OrderInput memory long = _input(false);
         vm.prank(alice);
         uint64 bid = markets.place(spec, long);
@@ -164,6 +167,69 @@ contract ProofTradingIntegrationTest is Test {
         vm.expectRevert(PimdMarkets.InvalidMarket.selector);
         markets.placeWithProofs(spec, i, p);
         _assertNothingCreated();
+    }
+
+    function test_restingOrderWithoutAnyRecordedPriceIsRefusedAndProofEnablesIt() public {
+        PimdMarkets.OrderInput memory long = _input(false);
+        vm.prank(alice);
+        vm.expectRevert(PimdMarkets.MissingPrice.selector);
+        markets.place(spec, long);
+        assertEq(markets.nextOrderId(), 1);
+        assertEq(markets.balance(alice, T.USDC), 100e6);
+        vm.prank(alice);
+        markets.placeWithProofs(spec, long, _proofs());
+        assertEq(oracle.price(1, F.BOUNDARY), F.PRICE);
+        assertTrue(markets.order(1).resting);
+    }
+
+    function test_proofAlreadyRecordedBySomeoneElseIsSkippedNotReverted() public {
+        BoundaryProofVerifier.BlockProof[3] memory proofs = F.proofs();
+        oracle.prove(1, F.BOUNDARY, proofs);
+        PimdMarkets.OrderInput memory long = _input(false);
+        vm.prank(alice);
+        markets.placeWithProofs(spec, long, _proofs());
+        assertEq(oracle.price(1, F.BOUNDARY), F.PRICE);
+        assertTrue(markets.order(1).resting);
+    }
+
+    function test_feeBudgetBelowOwnExecutionFeeIsRefused() public {
+        oracle.prove(1, F.BOUNDARY, F.proofs());
+        bytes32 id = markets.marketId(spec);
+        PimdMarkets.OrderInput memory long = _input(false);
+        // The market does not exist until the first placement; create it with a valid order first.
+        vm.prank(alice);
+        markets.place(spec, long);
+        uint256 makerFloor = markets.feeQuote(id, long.limitPrice, long.quantity, false, false);
+        uint256 takerFloor = markets.feeQuote(id, long.limitPrice, long.quantity, true, false);
+        assertGt(makerFloor, 0);
+        assertGt(takerFloor, makerFloor);
+        long.feeBudget = makerFloor - 1;
+        vm.prank(alice);
+        vm.expectRevert(PimdMarkets.InvalidOrder.selector);
+        markets.place(spec, long);
+        long.feeBudget = makerFloor;
+        vm.prank(alice);
+        markets.place(spec, long);
+        long.immediateOrCancel = true;
+        long.feeBudget = takerFloor - 1;
+        vm.prank(alice);
+        vm.expectRevert(PimdMarkets.InvalidOrder.selector);
+        markets.place(spec, long);
+    }
+
+    function _seedEarlierOptimisticPrice() private {
+        uint64 earlier = F.BOUNDARY - 30 hours;
+        address proposer = makeAddr("proof-proposer");
+        imd.mint(proposer, 10e18);
+        vm.warp(F.BOUNDARY - 2 hours);
+        vm.startPrank(proposer);
+        imd.approve(address(oracle), 10e18);
+        oracle.propose(1, earlier, F.PRICE, uint64(F.LAST_BLOCK - 100));
+        vm.stopPrank();
+        vm.warp(F.BOUNDARY - 1 hours);
+        oracle.finalize(1, earlier);
+        assertEq(oracle.latestBoundary(1), earlier);
+        vm.warp(F.BOUNDARY + 60);
     }
 
     function test_claimWithClosingProofSettlesAndPaysWithoutKeeper() public {
